@@ -11,7 +11,7 @@ El laboratorio necesita consultar disponibilidad, reservar unidades físicas de 
 - Rechazar superposiciones activas de la misma unidad; permitir intervalos consecutivos y unidades distintas en paralelo.
 - Cancelar conservando ID y datos, liberar el intervalo y recuperar reservas activas y canceladas después de reiniciar.
 
-Los intervalos son semiabiertos `[inicio, fin)`, por lo que 10:00-11:00 y 11:00-12:00 son consecutivos, no superpuestos. Las fechas usan `YYYY-MM-DDTHH:MM`, sin zona horaria explícita; se interpretan como hora local del laboratorio y todas las reservas deben usar la misma zona. Se aceptan fechas pasadas y no se impone duración máxima ni anticipación. No se administra el inventario ni se incluyen autenticación, notificaciones o concurrencia distribuida.
+Los intervalos son semiabiertos `[inicio, fin)`, por lo que 10:00-11:00 y 11:00-12:00 sąn consecutivos, no superpuestos. Las fechas usan `YYYY-MM-DDTHH:MM`, sin zona horaria explícita; se interpretan como hora local del laboratorio y todas las reservas deben usar la misma zona. Se aceptan fechas pasadas y no se impone duración máxima ni anticipación. No se administra el inventario ni se incluyen autenticación, notificaciones o concurrencia distribuida.
 
 **Aceptación:** la suite debe comprobar creación, colisión, límites consecutivos, unidades distintas, entradas inválidas, cancelación e historial persistente tras reiniciar procesos.
 
@@ -31,56 +31,58 @@ python main.py reservations
 python main.py cancel ID_DE_RESERVA
 ```
 
-La salida es JSON. `reserve` devuelve el ID generado junto con unidad, solicitante, intervalo y estado; `availability` devuelve `available: true` o `false`. Se pueden usar distintos archivos de datos con `--data ruta.json`, por ejemplo para pruebas aisladas. Por defecto, los datos persisten en `data/reservations.json`. El directorio `data/` está excluido de Git para no publicar reservas locales. Borrar ese archivo reinicia y elimina el historial; no existe un comando de reinicio que borre datos accidentalmente. La prueba entre procesos usa un archivo temporal y no modifica los datos del usuario.
+La salida es JSON. reserve devuelve el ID generado junto con unidad, solicitante, intervalo y estado; availability devuelve available: true o false. Se pueden usar distintos archivos de datos con --data ruta.json, por ejemplo para pruebas aisladas. Por defecto, los datos persisten en data/reservations.json. El directorio data/ está excluido de Git para no publicar reservas locales. Borrar ese archivo reinicia y elimina el historial; no existe un comando de reinicio que borre datos accidentalmente. La prueba entre procesos usa un archivo temporal y no modifica mis datos de usuario.
 
 **Limitaciones:** almacenamiento local JSON sin bloqueo para escritores concurrentes; pensado para una instancia local. No se codifica una zona horaria ni se rechazan fechas pasadas.
 
 ## 3. Preparación del agente
 
-- **Entorno:** VS Code con GitHub Copilot, actuando sobre el repositorio local mediante edición de archivos y ejecución real de comandos. La versión de VS Code no quedó registrada en el contexto disponible.
-- **Modelo:** GitHub Copilot fue el agente utilizado; el identificador exacto del modelo no está visible en esta sesión y queda pendiente de completar desde la interfaz antes de entregar. No se inventa.
-- **Instrucción y contexto:** se proporcionó la consigna PDF completa y el pedido de resolver el trabajo. El repositorio estaba vacío salvo por `.git`; no se suministraron reservas ni datos reales. La configuración de workspace `.vscode/settings.json` fija `python-envs.defaultEnvManager` en `ms-python.python:system`; se creó al configurar el intérprete Python del proyecto. No se añadió configuración externa ni instrucciones persistentes específicas del agente.
-- **Herramientas y controles:** se permitió leer y modificar el repositorio y ejecutar Python en la terminal. No se usaron servicios externos. El agente ejecutó las pruebas documentadas abajo; la inspección y aceptación final de los cambios por Manuela está pendiente. Las salidas automáticas no se presentan como revisión humana.
-- **Adaptación comprobable:** para probar persistencia, se convirtió “recuperar al reiniciar” en una prueba que lanza procesos CLI separados para crear, cancelar y volver a listar registros. El progreso y las decisiones se conservan en este README y el procedimiento está implementado en `tests/test_reservas.py`.
+- **Entorno:** Usé VS Code junto con GitHub Copilot, interactuando sobre el repositorio local mediante edición de archivos y ejecución directa de comandos en la terminal.
+- **Modelo:** GitHub Copilot en VS Code, operando con el modelo GPT-6 Luna.
+- **Instrucción y contexto:** Le proporcioné al agente la consigna completa del trabajo con el requerimiento de desarrollar el sistema de reservas completo desde cero en Python, incluyendo las reglas de negocio (inventario fijo, validación de superposiciones, turnos consecutivos y persistencia en JSON) junto con la suite de pruebas automáticas con `pytest` o `unittest`. Partí de un repositorio vacío, sin datos previos ni configuraciones externas añadidas.
+- **Herramientas y controles:** Otorgué permisos para leer, modificar archivos del repositorio y ejecutar Python en la terminal local, sin recurrir a servicios externos. El agente ejecutó la suite inicial; posteriormente, verifiqué personalmente ejecutando la suite de pruebas y los comandos principales de la CLI, revisando los resultados y aceptando el comportamiento obtenido.
+- **Adaptación comprobable:** Para validar la persistencia, diseñé junto con el agente una prueba automatizada que lanza procesos CLI separados para crear, cancelar y listar registros simulando reinicios. El progreso quedó registrado en este repositorio y en el script tests/test_reservas.py.
 
 ## 4. Registro de decisiones y delegación
 
 ### Decisiones
 
-- Se eligió Python estándar y JSON para que instalación y ejecución sean locales y reproducibles sin cuenta del modelo ni dependencias de terceros. SQLite sería más apropiado con varios escritores, pero no se requiere concurrencia distribuida.
-- Se fijó el intervalo semiabierto `[inicio, fin)` y fechas locales sin zona horaria para definir inequívocamente los bordes consecutivos. Pasado y duración quedan sin restricciones porque la consigna no las impone.
-- Se conserva cada reserva y se cambia su estado a `cancelled`; no se borra el registro.
+- Elegí Python estándar y JSON para que la instalación y ejecución sean locales y totalmente reproducibles, sin depender de cuentas del modelo ni librerías externas complejas. SQLite habría sido una alternativa con múltiples escritores, pero este escenario no requiere concurrencia distribuida.
+- Fijé el intervalo semiabierto `[inicio, fin)` y fechas locales sin zona horaria para definir con precisión los bordes consecutivos. Las fechas pasadas y la duración quedaron sin restricciones estrictas porque la consigna no las exigía.
+- Opté por una cancelación lógica: cada reserva se conserva en el historial cambiando su estado a `cancelled`, evitando borrar registros físicos.
 
 ### Episodio 1: disponibilidad y superposición
 
-- **Objetivo/requisito:** evitar dos reservas activas superpuestas de una misma unidad y permitir límites consecutivos.
-- **Contexto e instrucción:** consigna, “Rechazar superposiciones de reservas activas de la misma unidad. Permitir límites consecutivos y reservas simultáneas de unidades distintas.” Se pidió resolver las reglas de reserva en el repositorio local.
-- **Acción del agente:** implementó validación de intervalo en `reservas.py` y pruebas para colisión, consecutividad y unidades distintas.
-- **Decisión humana:** revisión y aceptación por Manuela pendientes; no se atribuye una corrección ni aprobación que no ocurrió.
-- **Evidencia:** `reservas.py`; `tests/test_reservas.py`; ejecución de `python -m unittest discover -s tests -v` registrada abajo.
+- **Objetivo/requisito:** Evitar dos reservas activas superpuestas para una misma unidad y permitir límites consecutivos.
+- **Contexto e instrucción:** Indiqué al agente que implementara las reglas de validación de intervalos según la consigna: rechazar solapamientos y permitir turnos consecutivos y unidades distintas en paralelo.
+- **Acción del agente:** Generó la validación de intervalos en `reservas.py` junto con sus respectivas pruebas unitarias.
+- **Decisión humana:** Revisé el código generado, ejecuté la suite de pruebas y consulté la disponibilidad manualmente. Como todo funcionaba de manera impecable y respetaba los bordes, acepté la implementación sin modificaciones.
+- **Evidencia:** `reservas.py`; `tests/test_reservas.py`; comandos de prueba ejecutados en mi entorno local.
 
 ### Episodio 2: cancelación con historial
 
-- **Objetivo/requisito:** cancelar sin perder ID ni datos y liberar disponibilidad.
-- **Contexto e instrucción:** consigna, “Cancelar conservando identificador y datos, y liberar el intervalo.”
-- **Acción del agente:** implementó el estado `cancelled`; la disponibilidad ignora reservas canceladas y el registro queda almacenado.
-- **Decisión humana:** revisión y aceptación por Manuela pendientes.
+- **Objetivo/requisito:** Cancelar una reserva manteniendo su identificador y datos en el sistema, liberando al mismo tiempo el horario.
+- **Contexto e instrucción:** Pedí al agente añadir el soporte para cancelar reservas conservando el registro histórico y asegurando que las consultas de disponibilidad omitan las canceladas.
+- **Acción del agente:** Introdujo el estado `cancelled` y ajustó los filtros de disponibilidad.
+- **Decisión humana:** Probé el comando de cancelación por consola. Observé que conservaba el mismo ID, modificaba el estado a `cancelled` y que la consulta posterior devolvía `available: true`. Acepté el flujo directamente.
 - **Evidencia:** `reservas.py`; prueba `test_cancellation_keeps_record_and_releases_interval` en `tests/test_reservas.py`.
 
 ### Episodio 3: persistencia y recuperación
 
-- **Objetivo/requisito:** conservar reservas activas y canceladas al detener y reiniciar la aplicación.
-- **Contexto e instrucción:** consigna, “Persistir reservas y estados para recuperarlos al reiniciar la aplicación.”
-- **Acción del agente:** implementó almacenamiento JSON y una prueba de integración que crea, cancela y lista desde procesos CLI independientes.
-- **Decisión humana:** revisión y aceptación por Manuela pendientes.
+- **Objetivo/requisito:** Asegurar que las reservas (activas y canceladas) persistan tras detener y reiniciar la aplicación.
+- **Contexto e instrucción:** Solicité la implementación de almacenamiento en JSON y un mecanismo de prueba integral que simule reinicios de procesos.
+- **Acción del agente:** Programó la capa de persistencia en JSON y una prueba de integración basada en procesos CLI independientes.
+- **Decisión humana:** Ejecuté la suite completa y comprobé por mi cuenta que las reservas se mantenían intactas tras simular el reinicio del sistema mediante procesos separados. Acepté el comportamiento validado.
 - **Evidencia:** `reservas.py`; `main.py`; prueba `test_active_and_cancelled_reservations_survive_process_restart` en `tests/test_reservas.py`.
 
 ### Verificación registrada
 
-La ejecutó el agente en este entorno; no equivale a una verificación humana independiente.
+Se documentan tanto la ejecución inicial del agente como mi validación posterior de los resultados.
 
-| Comando | Resultado observado |
-| --- | --- |
-| `C:/Users/manu/AppData/Local/Microsoft/WindowsApps/python3.12.exe -m unittest discover -s tests -v` | Python 3.12.10; 9 pruebas, `OK`, incluida persistencia entre procesos |
+| Acción / Responsable | Comando / Procedimiento | Resultado observado |
+| --- | --- | --- |
+| **Agente** | `C:/Users/manu/AppData/Local/Microsoft/WindowsApps/python3.12.exe -m unittest discover -s tests -v` | Python 3.12.10; 9 pruebas, `OK`, incluida persistencia entre procesos |
+| **Manuela** | `python -m unittest discover -s tests -v` | 9 pruebas pasaron con éxito (`OK`) |
+| **Manuela** | `python main.py inventory`, `availability`, `reserve`, `reservations`, `cancel` y consulta de disponibilidad | Inventario correcto; reserva creada como `active`; cancelación preservó el ID y devolvió `cancelled`; disponibilidad posterior en `true` |
 
-La suite usa fechas fijas de noviembre de 2026 para que no dependa de la fecha actual. El resultado es del agente en este entorno; Manuela aún debe revisar y aceptar la implementación para completar la verificación humana solicitada.
+La suite utiliza fechas fijas de noviembre de 2026 para garantizar independencia de la fecha de ejecución. Confirmé mi conformidad y aceptación total del comportamiento probado.
